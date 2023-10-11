@@ -21,22 +21,39 @@ const styles = StyleSheet.create({
 function App() {
   const [inputText, setInputText] = useState('');
   const [outputText, setOutputText] = useState('');
+  const [toxicityModel, setToxicityModel] = useState(null);
+
+  useEffect(() => {
+    // Load the toxicity model when the component mounts
+    async function loadToxicityModel() {
+      try {
+        await tf.ready();
+        const threshold = 0.9;
+        const model = await toxicity.load(threshold);
+        setToxicityModel(model);
+      } catch (error) {
+        console.error('Error loading toxicity model:', error);
+      }
+    }
+
+    loadToxicityModel();
+  }, []);
 
   const generateText = async () => {
-    try {
-      await tf.ready();
+    if (toxicityModel) {
+      const sentences = [inputText];
 
-      const threshold = 0.9;
-      const model = await toxicity.load(threshold);
-      const sentences = [inputText]; // Use the input text from the state
+      try {
+        const predictions = await toxicityModel.classify(sentences);
 
-      const predictions = await model.classify(sentences);
-
-      const outputText = predictions.filter(d => d.results[0].match)
-      setOutputText(JSON.stringify(outputText.length ? outputText[0].label : 'Nutral', null, 2));
-    } catch (error) {
-      console.error('Error generating text:', error);
-      setOutputText('Error generating text');
+        const outputText = predictions.filter(d => d.results[0].match);
+        setOutputText(JSON.stringify(outputText?.length ? outputText[0].label : 'Neutral', null, 2));
+      } catch (error) {
+        console.error('Error generating text:', error);
+        setOutputText('Error generating text');
+      }
+    } else {
+      setOutputText('Toxicity model is not loaded yet.');
     }
   };
 
